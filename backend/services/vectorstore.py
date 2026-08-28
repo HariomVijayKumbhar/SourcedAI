@@ -33,14 +33,17 @@ def add_documents(
     embeddings: List[List[float]],
     metadata_list: List[Dict[str, Any]],
     chat_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> List[str]:
     if not chunks:
         return []
     collection = _get_collection()
     ids = [str(uuid.uuid4()) for _ in chunks]
-    if chat_id:
-        for meta in metadata_list:
+    for meta in metadata_list:
+        if chat_id:
             meta["chat_id"] = chat_id
+        if user_id:
+            meta["user_id"] = user_id
     collection.add(
         embeddings=embeddings,
         documents=chunks,
@@ -51,7 +54,7 @@ def add_documents(
     return ids
 
 
-def search(query: str, top_k: int = 5, chat_id: Optional[str] = None) -> Dict[str, Any]:
+def search(query: str, top_k: int = 5, chat_id: Optional[str] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
     collection = _get_collection()
     count = collection.count()
     if count == 0:
@@ -60,11 +63,16 @@ def search(query: str, top_k: int = 5, chat_id: Optional[str] = None) -> Dict[st
     n_results = min(top_k, count)
     query_embeddings = generate_embeddings([query])
 
-    where_filter = {"chat_id": chat_id} if chat_id else None
+    where_filter = {}
+    if chat_id:
+        where_filter["chat_id"] = chat_id
+    elif user_id:
+        where_filter["user_id"] = user_id
+
     results = collection.query(
         query_embeddings=query_embeddings,
         n_results=n_results,
-        where=where_filter,
+        where=where_filter if where_filter else None,
         include=["documents", "metadatas", "distances"],
     )
     return {
@@ -86,6 +94,18 @@ def delete_chat_documents(chat_id: str) -> int:
     return len(ids)
 
 
+def delete_user_documents(user_id: str) -> int:
+    if not user_id:
+        return 0
+    collection = _get_collection()
+    result = collection.get(where={"user_id": user_id})
+    ids = result.get("ids", [])
+    if ids:
+        collection.delete(where={"user_id": user_id})
+    logger.info(f"Deleted {len(ids)} documents for user {user_id}")
+    return len(ids)
+
+
 def clear_collection() -> int:
     collection = _get_collection()
     count = collection.count()
@@ -94,9 +114,12 @@ def clear_collection() -> int:
     return count
 
 
-def get_document_count(chat_id: Optional[str] = None) -> int:
+def get_document_count(chat_id: Optional[str] = None, user_id: Optional[str] = None) -> int:
     collection = _get_collection()
     if chat_id:
         result = collection.get(where={"chat_id": chat_id})
+        return len(result.get("ids", []))
+    if user_id:
+        result = collection.get(where={"user_id": user_id})
         return len(result.get("ids", []))
     return collection.count()

@@ -76,7 +76,7 @@ async def upload_document(request: Request, file: UploadFile = File(...), chat_i
     ]
 
     try:
-        add_documents(chunks, embeddings, metadata_list, chat_id=chat_id)
+        add_documents(chunks, embeddings, metadata_list, chat_id=chat_id, user_id=user["user_id"])
     except Exception as e:
         logger.error(f"Error storing documents: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to store document")

@@ -59,7 +59,7 @@ async def query_document(request: Request, req: QueryRequest, user: dict = Depen
             detail="LLM provider API key is not configured. Please set the appropriate environment variable.",
         )
 
-    doc_count = get_document_count(chat_id=req.chat_id)
+    doc_count = get_document_count(chat_id=req.chat_id, user_id=user["user_id"])
     if doc_count == 0:
         return QueryResponse(
             answer="I don't have enough information to answer that from the uploaded documents. No documents have been uploaded to this chat yet.",
@@ -67,7 +67,7 @@ async def query_document(request: Request, req: QueryRequest, user: dict = Depen
         )
 
     try:
-        results = search(req.question, top_k=5, chat_id=req.chat_id)
+        results = search(req.question, top_k=5, chat_id=req.chat_id, user_id=user["user_id"])
     except Exception as e:
         logger.error(f"Error during similarity search: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to search documents")

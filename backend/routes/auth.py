@@ -24,9 +24,6 @@ class AuthResponse(BaseModel):
 
 @router.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest):
-    existing = authenticate_user(payload.username, payload.password)
-    if existing:
-        raise HTTPException(status_code=409, detail="Username already exists")
     from services.database import get_user_by_username
     if get_user_by_username(payload.username):
         raise HTTPException(status_code=409, detail="Username already exists")
