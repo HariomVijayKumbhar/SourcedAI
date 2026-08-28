@@ -4,17 +4,30 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import UploadBox from "@/components/UploadBox";
 import ChatWindow from "@/components/ChatWindow";
 import Sidebar from "@/components/Sidebar";
-import { queryDocument, getDocumentCount, getChats, createChat, getChatMessages, deleteChat } from "@/lib/api";
+import AuthPage from "@/components/AuthPage";
 import {
-  Sparkles,
+  queryDocument,
+  getDocumentCount,
+  getChats,
+  createChat,
+  getChatMessages,
+  deleteChat,
+  getToken,
+  getUser,
+  clearToken,
+} from "@/lib/api";
+import {
   Layers,
   Send,
   Trash2,
   Menu,
   Plus,
+  LogOut,
 } from "lucide-react";
 
 export default function Home() {
+  const [user, setUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [savedChats, setSavedChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -27,6 +40,27 @@ export default function Home() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const uploadBoxRef = useRef(null);
+
+  useEffect(() => {
+    const token = getToken();
+    const savedUser = getUser();
+    if (token && savedUser) {
+      setUser(savedUser);
+    }
+    setIsAuthLoading(false);
+  }, []);
+
+  const handleAuthSuccess = useCallback((userData) => {
+    setUser(userData);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearToken();
+    setUser(null);
+    setMessages([]);
+    setSavedChats([]);
+    setActiveChatId(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,6 +230,18 @@ export default function Home() {
     []
   );
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <div className="relative h-screen bg-[#0B0F19] text-slate-100 flex overflow-hidden selection:bg-indigo-500/30">
       {/* Background ambient lighting */}
@@ -259,6 +305,22 @@ export default function Home() {
                 <span className="hidden sm:inline">Clear</span>
               </button>
             )}
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-900/40 border border-slate-800 text-slate-400 hover:text-rose-300 text-xs transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-800/60 text-xs text-slate-300 border border-slate-700/50">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-[10px] font-bold">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden sm:inline">{user.username}</span>
+            </div>
           </div>
         </header>
 
