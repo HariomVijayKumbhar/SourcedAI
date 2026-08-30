@@ -12,6 +12,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from config import get_settings
 from rate_limiter import limiter
+from services.database import init_db
 from routes.upload import router as upload_router
 from routes.query import router as query_router
 from routes.chats import router as chats_router

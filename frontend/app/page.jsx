@@ -63,6 +63,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!user) return undefined;
     let cancelled = false;
     getChats().then(async (chats) => {
       if (cancelled) return;
@@ -85,7 +86,7 @@ export default function Home() {
       }
     });
     return () => { cancelled = true; };
-  }, [handleLogout]);
+  }, [user, handleLogout]);
 
   useEffect(() => {
     if (!activeChatId || !messages.length) return;

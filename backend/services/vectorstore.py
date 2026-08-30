@@ -56,18 +56,18 @@ def add_documents(
 
 def search(query: str, top_k: int = 5, chat_id: Optional[str] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
     collection = _get_collection()
-    count = collection.count()
-    if count == 0:
-        return {"documents": [], "metadatas": [], "distances": []}
-
-    n_results = min(top_k, count)
-    query_embeddings = generate_embeddings([query])
 
     where_filter = {}
     if chat_id:
         where_filter["chat_id"] = chat_id
     elif user_id:
         where_filter["user_id"] = user_id
+    scoped_count = collection.count() if not where_filter else len(collection.get(where=where_filter).get("ids", []))
+    if scoped_count == 0:
+        return {"documents": [], "metadatas": [], "distances": []}
+
+    n_results = min(top_k, scoped_count)
+    query_embeddings = generate_embeddings([query])
 
     results = collection.query(
         query_embeddings=query_embeddings,

@@ -19,6 +19,11 @@ def init_db() -> None:
     with _connection() as db:
         db.execute("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
         db.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+        # Upgrade databases created before chats were associated with an owner.
+        chat_columns = {row["name"] for row in db.execute("PRAGMA table_info(chats)").fetchall()}
+        if "user_id" not in chat_columns:
+            db.execute("ALTER TABLE chats ADD COLUMN user_id TEXT")
+            logger.info("Migrated legacy chats table to include user ownership")
         db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE, role TEXT NOT NULL CHECK(role IN ('user', 'assistant')), content TEXT NOT NULL, sources TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
         db.execute("CREATE INDEX IF NOT EXISTS messages_chat_idx ON messages(chat_id, id)")
         db.execute("CREATE INDEX IF NOT EXISTS chats_user_idx ON chats(user_id, updated_at DESC)")

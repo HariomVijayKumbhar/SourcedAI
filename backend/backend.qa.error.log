@@ -1,0 +1,6 @@
+INFO:     Started server process [16856]
+INFO:     Waiting for application startup.
+2026-08-30 10:05:38,144 [INFO] services.database: Migrated legacy chats table to include user ownership
+2026-08-30 10:05:38,157 [INFO] main: Starting SourceAI backend
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
