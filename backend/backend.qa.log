@@ -1,1 +1,29 @@
-INFO:     127.0.0.1:64231 - "GET /health HTTP/1.1" 200 OK
+INFO:     Started server process [19084]
+INFO:     Waiting for application startup.
+2026-08-30 12:49:07,914 [INFO] main: Starting SourceAI backend
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:63366 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54363 - "OPTIONS /api/documents/count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54363 - "GET /api/documents/count HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52439 - "OPTIONS /api/auth/register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52439 - "POST /api/auth/register HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52439 - "OPTIONS /api/chats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53247 - "OPTIONS /api/documents/count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53247 - "GET /api/chats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52439 - "GET /api/documents/count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52439 - "OPTIONS /api/chats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52439 - "POST /api/chats HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52439 - "OPTIONS /api/documents/count?chat_id=41d96a77-89e6-4cd6-a52e-abdfbfafb28f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52439 - "GET /api/documents/count?chat_id=41d96a77-89e6-4cd6-a52e-abdfbfafb28f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60795 - "OPTIONS /api/auth/register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60795 - "POST /api/auth/register HTTP/1.1" 201 Created
+INFO:     127.0.0.1:60795 - "OPTIONS /api/chats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60795 - "OPTIONS /api/documents/count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60795 - "GET /api/chats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60795 - "GET /api/documents/count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771 - "OPTIONS /api/chats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771 - "POST /api/chats HTTP/1.1" 201 Created
+INFO:     127.0.0.1:55771 - "OPTIONS /api/documents/count?chat_id=252797fe-9fcd-4ae6-96d8-14a4fd4f2e2f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771 - "GET /api/documents/count?chat_id=252797fe-9fcd-4ae6-96d8-14a4fd4f2e2f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52091 - "GET /api/documents/count?chat_id=252797fe-9fcd-4ae6-96d8-14a4fd4f2e2f HTTP/1.1" 200 OK

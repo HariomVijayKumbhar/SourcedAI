@@ -1,11 +1,10 @@
-import os
-import uuid
 import hashlib
 import hmac
 import time
 import json
 import base64
 import logging
+import bcrypt
 from typing import Optional, Dict, Any
 from config import get_settings
 
@@ -98,11 +97,9 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 def _hash_password(password: str) -> str:
-    import bcrypt
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode(), salt).decode()
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
-    import bcrypt
     return bcrypt.checkpw(password.encode(), password_hash.encode())

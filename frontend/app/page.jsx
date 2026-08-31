@@ -78,15 +78,9 @@ export default function Home() {
           setActiveChatId(first.id);
         }
       }
-    }).catch((err) => {
-      if (err.message === "Unauthorized") {
-        handleLogout();
-      } else {
-        setInputError("Could not connect to the chat database.");
-      }
-    });
+    }).catch(() => setInputError("Could not load chats."));
     return () => { cancelled = true; };
-  }, [user, handleLogout]);
+  }, [user]);
 
   useEffect(() => {
     if (!activeChatId || !messages.length) return;
@@ -153,10 +147,11 @@ export default function Home() {
   }, [activeChatId]);
 
   useEffect(() => {
+    if (!user) return undefined;
     fetchDocCount();
     const interval = setInterval(fetchDocCount, 15000);
     return () => clearInterval(interval);
-  }, [fetchDocCount]);
+  }, [user, fetchDocCount]);
 
   const handleUploadSuccess = useCallback(() => {
     fetchDocCount();
@@ -204,10 +199,6 @@ export default function Home() {
           msg = "Cannot connect to the backend server. Is it running on port 8001?";
           setIsBackendConnected(false);
         }
-        if (err.message === "Unauthorized") {
-          handleLogout();
-          return;
-        }
         setMessages((prev) => [
           ...prev,
           {
@@ -220,7 +211,7 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    [inputValue, messages, activeChatId, handleLogout]
+    [inputValue, messages, activeChatId]
   );
 
   const handleKeyPress = useCallback(

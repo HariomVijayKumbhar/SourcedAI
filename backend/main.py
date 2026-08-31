@@ -39,6 +39,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     os.makedirs(settings.chroma_persist_dir, exist_ok=True)
     init_db()
+    if settings.jwt_secret == "change-this-to-a-random-secret-key-in-production":
+        logger.warning("WARNING: Using default JWT_SECRET. Set a secure random value in production!")
     logger.info("Starting SourceAI backend")
     yield
     logger.info("Shutting down SourceAI backend")

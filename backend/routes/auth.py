@@ -1,7 +1,8 @@
 import logging
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from services.auth import create_user, authenticate_user, create_token
+from rate_limiter import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,7 +24,8 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest):
+@limiter.limit("5/minute")
+async def register(request: Request, payload: RegisterRequest):
     from services.database import get_user_by_username
     if get_user_by_username(payload.username):
         raise HTTPException(status_code=409, detail="Username already exists")
@@ -37,7 +39,8 @@ async def register(payload: RegisterRequest):
 
 
 @router.post("/auth/login", response_model=AuthResponse)
-async def login(payload: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, payload: LoginRequest):
     user = authenticate_user(payload.username, payload.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")

@@ -1,0 +1,8 @@
+INFO:     Started server process [15532]
+INFO:     Waiting for application startup.
+2026-08-30 12:49:07,914 [INFO] main: Starting SourceAI backend
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8001): [winerror 10048] only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+2026-08-30 12:49:07,916 [INFO] main: Shutting down SourceAI backend
+INFO:     Application shutdown complete.

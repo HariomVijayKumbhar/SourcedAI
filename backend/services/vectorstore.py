@@ -55,14 +55,17 @@ def add_documents(
 
 
 def search(query: str, top_k: int = 5, chat_id: Optional[str] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
-    collection = _get_collection()
+    collection = _get_client()
 
     where_filter = {}
     if chat_id:
         where_filter["chat_id"] = chat_id
     elif user_id:
         where_filter["user_id"] = user_id
-    scoped_count = collection.count() if not where_filter else len(collection.get(where=where_filter).get("ids", []))
+    else:
+        return {"documents": [], "metadatas": [], "distances": []}
+
+    scoped_count = len(collection.get(where=where_filter).get("ids", []))
     if scoped_count == 0:
         return {"documents": [], "metadatas": [], "distances": []}
 
@@ -72,7 +75,7 @@ def search(query: str, top_k: int = 5, chat_id: Optional[str] = None, user_id: O
     results = collection.query(
         query_embeddings=query_embeddings,
         n_results=n_results,
-        where=where_filter if where_filter else None,
+        where=where_filter,
         include=["documents", "metadatas", "distances"],
     )
     return {

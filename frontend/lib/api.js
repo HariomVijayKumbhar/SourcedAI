@@ -12,6 +12,17 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+async function handleUnauthorized(response) {
+  if (response.status === 401) {
+    clearToken();
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+    throw new Error("Unauthorized");
+  }
+  return response;
+}
+
 export async function loginUser(username, password) {
   const response = await fetch(`${API_URL}/api/auth/login`, {
     method: "POST",
@@ -41,11 +52,11 @@ export async function uploadDocument(file, chatId = null) {
     formData.append("chat_id", chatId);
   }
 
-  const response = await fetch(`${API_URL}/api/upload`, {
+  const response = await handleUnauthorized(await fetch(`${API_URL}/api/upload`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
-  });
+  }));
 
   const data = await response.json();
 
@@ -58,11 +69,11 @@ export async function uploadDocument(file, chatId = null) {
 }
 
 export async function queryDocument(question, history = [], chatId = null) {
-  const response = await fetch(`${API_URL}/api/query`, {
+  const response = await handleUnauthorized(await fetch(`${API_URL}/api/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ question, history, chat_id: chatId }),
-  });
+  }));
 
   const data = await response.json();
 
@@ -75,35 +86,32 @@ export async function queryDocument(question, history = [], chatId = null) {
 }
 
 export async function getChats() {
-  const response = await fetch(`${API_URL}/api/chats`, { headers: authHeaders() });
-  if (!response.ok) {
-    if (response.status === 401) throw new Error("Unauthorized");
-    throw new Error("Failed to load chats");
-  }
+  const response = await handleUnauthorized(await fetch(`${API_URL}/api/chats`, { headers: authHeaders() }));
+  if (!response.ok) throw new Error("Failed to load chats");
   return (await response.json()).chats;
 }
 
 export async function createChat(title = "New conversation") {
-  const response = await fetch(`${API_URL}/api/chats`, {
+  const response = await handleUnauthorized(await fetch(`${API_URL}/api/chats`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ title }),
-  });
+  }));
   if (!response.ok) throw new Error("Failed to create chat");
   return response.json();
 }
 
 export async function getChatMessages(chatId) {
-  const response = await fetch(`${API_URL}/api/chats/${chatId}/messages`, { headers: authHeaders() });
+  const response = await handleUnauthorized(await fetch(`${API_URL}/api/chats/${chatId}/messages`, { headers: authHeaders() }));
   if (!response.ok) throw new Error("Failed to load chat messages");
   return (await response.json()).messages;
 }
 
 export async function deleteChat(chatId) {
-  const response = await fetch(`${API_URL}/api/chats/${chatId}`, {
+  const response = await handleUnauthorized(await fetch(`${API_URL}/api/chats/${chatId}`, {
     method: "DELETE",
     headers: authHeaders(),
-  });
+  }));
   if (!response.ok) throw new Error("Failed to delete chat");
   return true;
 }
@@ -112,10 +120,10 @@ export async function getDocumentCount(chatId = null) {
   const url = chatId
     ? `${API_URL}/api/documents/count?chat_id=${encodeURIComponent(chatId)}`
     : `${API_URL}/api/documents/count`;
-  const response = await fetch(url, {
+  const response = await handleUnauthorized(await fetch(url, {
     method: "GET",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-  });
+  }));
 
   if (!response.ok) {
     throw new Error("Failed to fetch document count");
