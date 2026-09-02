@@ -4,12 +4,11 @@ services:
     runtime: python
     plan: free
     rootDir: backend
-    build:
-      commands:
-        - pip install -r requirements.txt
-    start:
-      command: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
       - key: LLM_PROVIDER
         value: openrouter
       - key: LLM_MODEL
