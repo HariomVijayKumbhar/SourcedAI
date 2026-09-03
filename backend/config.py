@@ -38,9 +38,6 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 20
     rate_limit_window_seconds: int = 60
 
-    # JWT Authentication
-    jwt_secret: str = os.environ.get("JWT_SECRET", "change-this-to-a-random-secret-key-in-production")
-
 
 @lru_cache()
 def get_settings() -> Settings:

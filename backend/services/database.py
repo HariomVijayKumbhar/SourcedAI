@@ -15,82 +15,95 @@ def _connection() -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     return connection
 
+
 def init_db() -> None:
     with _connection() as db:
-        db.execute("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
-        db.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
-        # Upgrade databases created before chats were associated with an owner.
-        chat_columns = {row["name"] for row in db.execute("PRAGMA table_info(chats)").fetchall()}
-        if "user_id" not in chat_columns:
-            db.execute("ALTER TABLE chats ADD COLUMN user_id TEXT")
-            logger.info("Migrated legacy chats table to include user ownership")
-        db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE, role TEXT NOT NULL CHECK(role IN ('user', 'assistant')), content TEXT NOT NULL, sources TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS chats ("
+            "id TEXT PRIMARY KEY, "
+            "title TEXT NOT NULL, "
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS messages ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE, "
+            "role TEXT NOT NULL CHECK(role IN ('user', 'assistant')), "
+            "content TEXT NOT NULL, "
+            "sources TEXT NOT NULL DEFAULT '[]', "
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
         db.execute("CREATE INDEX IF NOT EXISTS messages_chat_idx ON messages(chat_id, id)")
-        db.execute("CREATE INDEX IF NOT EXISTS chats_user_idx ON chats(user_id, updated_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS chats_updated_idx ON chats(updated_at DESC)")
         db.execute("PRAGMA foreign_keys = ON")
         db.commit()
 
 
-def create_user(username: str, password_hash: str) -> Dict[str, Any]:
-    user_id = str(uuid.uuid4())
+def list_chats() -> List[Dict[str, Any]]:
     with _connection() as db:
-        db.execute("INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)", (user_id, username, password_hash))
-        db.commit()
-    return {"id": user_id, "username": username}
-
-
-def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
-    with _connection() as db:
-        row = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-        if row:
-            return {"id": row["id"], "username": row["username"], "password_hash": row["password_hash"]}
-    return None
-
-
-def list_chats(user_id: str) -> List[Dict[str, Any]]:
-    with _connection() as db:
-        rows = db.execute("SELECT * FROM chats WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)).fetchall()
+        rows = db.execute("SELECT * FROM chats ORDER BY updated_at DESC").fetchall()
         return [{"id": row["id"], "title": row["title"], "messages": []} for row in rows]
 
 
-def create_chat(user_id: str, title: str = "New conversation") -> Dict[str, Any]:
+def create_chat(title: str = "New conversation") -> Dict[str, Any]:
     chat_id = str(uuid.uuid4())
     with _connection() as db:
-        db.execute("INSERT INTO chats (id, user_id, title) VALUES (?, ?, ?)", (chat_id, user_id, title))
+        db.execute("INSERT INTO chats (id, title) VALUES (?, ?)", (chat_id, title))
         db.commit()
     return {"id": chat_id, "title": title, "messages": []}
 
 
-def get_messages(chat_id: str, user_id: str) -> List[Dict[str, Any]]:
+def get_messages(chat_id: str) -> Optional[List[Dict[str, Any]]]:
     with _connection() as db:
-        chat = db.execute("SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)).fetchone()
+        chat = db.execute("SELECT id FROM chats WHERE id = ?", (chat_id,)).fetchone()
         if not chat:
             return None
-        rows = db.execute("SELECT role, content, sources FROM messages WHERE chat_id = ? ORDER BY id", (chat_id,)).fetchall()
-        return [{"role": row["role"], "content": row["content"], "sources": json.loads(row["sources"])} for row in rows]
+        rows = db.execute(
+            "SELECT role, content, sources FROM messages WHERE chat_id = ? ORDER BY id", (chat_id,)
+        ).fetchall()
+        return [
+            {"role": row["role"], "content": row["content"], "sources": json.loads(row["sources"])}
+            for row in rows
+        ]
 
 
-def delete_chat(chat_id: str, user_id: str) -> bool:
+def delete_chat(chat_id: str) -> bool:
     with _connection() as db:
-        cursor = db.execute("DELETE FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id))
+        cursor = db.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
         db.commit()
         return cursor.rowcount > 0
 
 
 def add_message(chat_id: str, role: str, content: str, sources: list | None = None) -> None:
     with _connection() as db:
-        db.execute("INSERT OR IGNORE INTO chats (id, title) VALUES (?, ?)", (chat_id, content[:48] if role == "user" else "New conversation"))
+        db.execute(
+            "INSERT OR IGNORE INTO chats (id, title) VALUES (?, ?)",
+            (chat_id, content[:48] if role == "user" else "New conversation"),
+        )
         db.execute(
             "INSERT INTO messages (chat_id, role, content, sources) VALUES (:chat_id, :role, :content, :sources)",
-            {"chat_id": chat_id, "role": role, "content": content, "sources": json.dumps(sources or [])},
+            {
+                "chat_id": chat_id,
+                "role": role,
+                "content": content,
+                "sources": json.dumps(sources or []),
+            },
         )
-        db.execute("UPDATE chats SET updated_at = CURRENT_TIMESTAMP, title = CASE WHEN title = 'New conversation' AND ? = 'user' THEN ? ELSE title END WHERE id = ?", (role, content[:48], chat_id))
+        db.execute(
+            "UPDATE chats SET updated_at = CURRENT_TIMESTAMP, "
+            "title = CASE WHEN title = 'New conversation' AND ? = 'user' THEN ? ELSE title END "
+            "WHERE id = ?",
+            (role, content[:48], chat_id),
+        )
         db.commit()
 
 
-def get_chat_by_id(chat_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+def get_chat_by_id(chat_id: str) -> Optional[Dict[str, Any]]:
     with _connection() as db:
-        row = db.execute("SELECT * FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)).fetchone()
+        row = db.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
         if row:
-            return {"id": row["id"], "title": row["title"], "user_id": row["user_id"]}
+            return {"id": row["id"], "title": row["title"]}
     return None

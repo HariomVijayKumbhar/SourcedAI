@@ -16,7 +16,6 @@ from services.database import init_db
 from routes.upload import router as upload_router
 from routes.query import router as query_router
 from routes.chats import router as chats_router
-from routes.auth import router as auth_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,8 +38,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     os.makedirs(settings.chroma_persist_dir, exist_ok=True)
     init_db()
-    if settings.jwt_secret == "change-this-to-a-random-secret-key-in-production":
-        logger.warning("WARNING: Using default JWT_SECRET. Set a secure random value in production!")
     logger.info("Starting SourceAI backend")
     yield
     logger.info("Shutting down SourceAI backend")
@@ -91,7 +88,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(upload_router, prefix="/api")
 app.include_router(query_router, prefix="/api")
 app.include_router(chats_router, prefix="/api")
-app.include_router(auth_router, prefix="/api")
 
 
 @app.get("/health")

@@ -189,6 +189,7 @@ The app will be available at `http://localhost:3000`.
 - **Ephemeral storage on Render**: ChromaDB stores vectors locally. On Render (free plan), the filesystem is ephemeral — all uploaded documents and their embeddings are lost on redeploy. Attach a persistent disk or re-upload documents after each redeploy. For production, consider a managed ChromaDB or a cloud vector database.
 - **Local embeddings only**: The `all-MiniLM-L6-v2` model runs locally (CPU). First request takes ~10-30 seconds to load the model; subsequent requests are fast.
 - **No authentication**: The API is open. For production, add API key authentication or user authentication.
+- **Shared state**: All uploaded documents and chats are shared across everyone hitting the deployment. For per-user isolation, add authentication and scope storage by user.
 - **Single collection**: All documents are stored in a single ChromaDB collection. There is no multi-user isolation.
 - **No document deletion**: Once uploaded, documents cannot be individually removed. Use `clear_collection()` in `vectorstore.py` to clear all documents.
 - **File types**: Only PDF and DOCX are supported. Other formats (TXT, PPTX, images) are rejected with a 400 error.

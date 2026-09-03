@@ -1,13 +1,12 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Request, Depends, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from services.vectorstore import search, get_document_count
 from services.llm import generate_answer, is_llm_configured
 from services.database import add_message, get_chat_by_id
-from middleware.auth_middleware import get_current_user
 from rate_limiter import limiter
 
 logger = logging.getLogger(__name__)
@@ -17,6 +16,7 @@ router = APIRouter()
 class HistoryMessage(BaseModel):
     role: str
     content: str
+
 
 class QueryRequest(BaseModel):
     question: str
@@ -47,9 +47,9 @@ class QueryResponse(BaseModel):
 
 @router.post("/query", response_model=QueryResponse)
 @limiter.limit("20/minute")
-async def query_document(request: Request, req: QueryRequest, user: dict = Depends(get_current_user)):
+async def query_document(request: Request, req: QueryRequest):
     if req.chat_id:
-        chat = get_chat_by_id(req.chat_id, user["user_id"])
+        chat = get_chat_by_id(req.chat_id)
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
 
@@ -59,7 +59,7 @@ async def query_document(request: Request, req: QueryRequest, user: dict = Depen
             detail="LLM provider API key is not configured. Please set the appropriate environment variable.",
         )
 
-    doc_count = get_document_count(chat_id=req.chat_id, user_id=user["user_id"])
+    doc_count = get_document_count(chat_id=req.chat_id)
     if doc_count == 0:
         return QueryResponse(
             answer="I don't have enough information to answer that from the uploaded documents. No documents have been uploaded to this chat yet.",
@@ -67,10 +67,13 @@ async def query_document(request: Request, req: QueryRequest, user: dict = Depen
         )
 
     try:
-        results = search(req.question, top_k=5, chat_id=req.chat_id, user_id=user["user_id"])
+        results = search(req.question, top_k=5, chat_id=req.chat_id)
     except Exception as e:
         logger.error(f"Error during similarity search: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to search documents")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search documents",
+        )
 
     retrieved_chunks = results.get("documents", [])
     retrieved_metadata = results.get("metadatas", [])
@@ -110,12 +113,14 @@ async def query_document(request: Request, req: QueryRequest, user: dict = Depen
     for i, meta in enumerate(retrieved_metadata):
         if meta is None:
             continue
-        sources.append(SourceInfo(
-            source_document=meta.get("source_document", "unknown"),
-            chunk_index=meta.get("chunk_index", i),
-            total_chunks=meta.get("total_chunks", len(retrieved_metadata)),
-            distance=round(distances[i] if i < len(distances) else 0.0, 4),
-        ))
+        sources.append(
+            SourceInfo(
+                source_document=meta.get("source_document", "unknown"),
+                chunk_index=meta.get("chunk_index", i),
+                total_chunks=meta.get("total_chunks", len(retrieved_metadata)),
+                distance=round(distances[i] if i < len(distances) else 0.0, 4),
+            )
+        )
 
     if req.chat_id:
         try:
