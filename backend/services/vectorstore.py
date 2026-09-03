@@ -54,7 +54,7 @@ def add_documents(
 
 
 def search(query: str, top_k: int = 5, chat_id: Optional[str] = None) -> Dict[str, Any]:
-    collection = _get_client()
+    collection = _get_collection()
 
     if chat_id:
         where_filter = {"chat_id": chat_id}
