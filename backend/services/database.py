@@ -21,6 +21,7 @@ def init_db() -> None:
         db.execute(
             "CREATE TABLE IF NOT EXISTS chats ("
             "id TEXT PRIMARY KEY, "
+            "session_id TEXT NOT NULL, "
             "title TEXT NOT NULL, "
             "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
             "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
@@ -37,28 +38,37 @@ def init_db() -> None:
             ")"
         )
         db.execute("CREATE INDEX IF NOT EXISTS messages_chat_idx ON messages(chat_id, id)")
-        db.execute("CREATE INDEX IF NOT EXISTS chats_updated_idx ON chats(updated_at DESC)")
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS chats_session_idx ON chats(session_id, updated_at DESC)"
+        )
         db.execute("PRAGMA foreign_keys = ON")
         db.commit()
 
 
-def list_chats() -> List[Dict[str, Any]]:
+def list_chats(session_id: str) -> List[Dict[str, Any]]:
     with _connection() as db:
-        rows = db.execute("SELECT * FROM chats ORDER BY updated_at DESC").fetchall()
+        rows = db.execute(
+            "SELECT * FROM chats WHERE session_id = ? ORDER BY updated_at DESC", (session_id,)
+        ).fetchall()
         return [{"id": row["id"], "title": row["title"], "messages": []} for row in rows]
 
 
-def create_chat(title: str = "New conversation") -> Dict[str, Any]:
+def create_chat(session_id: str, title: str = "New conversation") -> Dict[str, Any]:
     chat_id = str(uuid.uuid4())
     with _connection() as db:
-        db.execute("INSERT INTO chats (id, title) VALUES (?, ?)", (chat_id, title))
+        db.execute(
+            "INSERT INTO chats (id, session_id, title) VALUES (?, ?, ?)",
+            (chat_id, session_id, title),
+        )
         db.commit()
     return {"id": chat_id, "title": title, "messages": []}
 
 
-def get_messages(chat_id: str) -> Optional[List[Dict[str, Any]]]:
+def get_messages(chat_id: str, session_id: str) -> Optional[List[Dict[str, Any]]]:
     with _connection() as db:
-        chat = db.execute("SELECT id FROM chats WHERE id = ?", (chat_id,)).fetchone()
+        chat = db.execute(
+            "SELECT id FROM chats WHERE id = ? AND session_id = ?", (chat_id, session_id)
+        ).fetchone()
         if not chat:
             return None
         rows = db.execute(
@@ -70,9 +80,11 @@ def get_messages(chat_id: str) -> Optional[List[Dict[str, Any]]]:
         ]
 
 
-def delete_chat(chat_id: str) -> bool:
+def delete_chat(chat_id: str, session_id: str) -> bool:
     with _connection() as db:
-        cursor = db.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
+        cursor = db.execute(
+            "DELETE FROM chats WHERE id = ? AND session_id = ?", (chat_id, session_id)
+        )
         db.commit()
         return cursor.rowcount > 0
 
@@ -80,8 +92,8 @@ def delete_chat(chat_id: str) -> bool:
 def add_message(chat_id: str, role: str, content: str, sources: list | None = None) -> None:
     with _connection() as db:
         db.execute(
-            "INSERT OR IGNORE INTO chats (id, title) VALUES (?, ?)",
-            (chat_id, content[:48] if role == "user" else "New conversation"),
+            "INSERT OR IGNORE INTO chats (id, session_id, title) VALUES (?, ?, ?)",
+            (chat_id, "legacy", content[:48] if role == "user" else "New conversation"),
         )
         db.execute(
             "INSERT INTO messages (chat_id, role, content, sources) VALUES (:chat_id, :role, :content, :sources)",
@@ -101,9 +113,11 @@ def add_message(chat_id: str, role: str, content: str, sources: list | None = No
         db.commit()
 
 
-def get_chat_by_id(chat_id: str) -> Optional[Dict[str, Any]]:
+def get_chat_by_id(chat_id: str, session_id: str) -> Optional[Dict[str, Any]]:
     with _connection() as db:
-        row = db.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
+        row = db.execute(
+            "SELECT * FROM chats WHERE id = ? AND session_id = ?", (chat_id, session_id)
+        ).fetchone()
         if row:
             return {"id": row["id"], "title": row["title"]}
     return None

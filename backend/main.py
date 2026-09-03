@@ -16,6 +16,7 @@ from services.database import init_db
 from routes.upload import router as upload_router
 from routes.query import router as query_router
 from routes.chats import router as chats_router
+from routes.auth import router as auth_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -88,6 +89,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(upload_router, prefix="/api")
 app.include_router(query_router, prefix="/api")
 app.include_router(chats_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
 
 
 @app.get("/health")

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import UploadBox from "@/components/UploadBox";
 import ChatWindow from "@/components/ChatWindow";
 import Sidebar from "@/components/Sidebar";
+import PasscodeGate from "@/components/PasscodeGate";
 import {
   queryDocument,
   getDocumentCount,
@@ -11,6 +12,7 @@ import {
   createChat,
   getChatMessages,
   deleteChat,
+  getToken,
 } from "@/lib/api";
 import {
   Layers,
@@ -21,6 +23,7 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const [isAuthed, setIsAuthed] = useState(false);
   const [messages, setMessages] = useState([]);
   const [savedChats, setSavedChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -35,6 +38,14 @@ export default function Home() {
   const uploadBoxRef = useRef(null);
 
   useEffect(() => {
+    if (getToken()) setIsAuthed(true);
+    const onUnauth = () => setIsAuthed(false);
+    window.addEventListener("sourceai:unauthorized", onUnauth);
+    return () => window.removeEventListener("sourceai:unauthorized", onUnauth);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthed) return undefined;
     let cancelled = false;
     getChats()
       .then(async (chats) => {
@@ -55,7 +66,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAuthed]);
 
   useEffect(() => {
     if (!activeChatId || !messages.length) return;
@@ -136,7 +147,7 @@ export default function Home() {
     fetchDocCount();
     const interval = setInterval(fetchDocCount, 15000);
     return () => clearInterval(interval);
-  }, [fetchDocCount]);
+  }, [fetchDocCount, isAuthed]);
 
   const handleUploadSuccess = useCallback(() => {
     fetchDocCount();
@@ -213,6 +224,10 @@ export default function Home() {
     setInputValue(suggestionText);
     textareaRef.current?.focus();
   }, []);
+
+  if (!isAuthed) {
+    return <PasscodeGate onAuthenticated={() => setIsAuthed(true)} />;
+  }
 
   return (
     <div className="relative h-screen bg-[#0B0F19] text-slate-100 flex overflow-hidden selection:bg-indigo-500/30">

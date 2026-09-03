@@ -21,6 +21,8 @@ services:
         value: https://sourceai.vercel.app
       - key: MAX_FILE_SIZE_MB
         value: "10"
+      - key: APP_PASSCODE
+        generateValue: true
       # Secrets — set these in the Render dashboard Environment tab after first deploy:
       - key: OPENROUTER_API_KEY
         sync: false

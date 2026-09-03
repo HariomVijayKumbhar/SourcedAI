@@ -1,9 +1,10 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
+from middleware.auth_middleware import get_session_id
 from services.vectorstore import search, get_document_count
 from services.llm import generate_answer, is_llm_configured
 from services.database import add_message, get_chat_by_id
@@ -47,9 +48,13 @@ class QueryResponse(BaseModel):
 
 @router.post("/query", response_model=QueryResponse)
 @limiter.limit("20/minute")
-async def query_document(request: Request, req: QueryRequest):
+async def query_document(
+    request: Request,
+    req: QueryRequest,
+    session_id: str = Depends(get_session_id),
+):
     if req.chat_id:
-        chat = get_chat_by_id(req.chat_id)
+        chat = get_chat_by_id(req.chat_id, session_id)
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
 
@@ -59,7 +64,7 @@ async def query_document(request: Request, req: QueryRequest):
             detail="LLM provider API key is not configured. Please set the appropriate environment variable.",
         )
 
-    doc_count = get_document_count(chat_id=req.chat_id)
+    doc_count = get_document_count(chat_id=req.chat_id, session_id=session_id)
     if doc_count == 0:
         return QueryResponse(
             answer="I don't have enough information to answer that from the uploaded documents. No documents have been uploaded to this chat yet.",
@@ -67,7 +72,7 @@ async def query_document(request: Request, req: QueryRequest):
         )
 
     try:
-        results = search(req.question, top_k=5, chat_id=req.chat_id)
+        results = search(req.question, top_k=5, chat_id=req.chat_id, session_id=session_id)
     except Exception as e:
         logger.error(f"Error during similarity search: {e}", exc_info=True)
         raise HTTPException(

@@ -1,9 +1,10 @@
 import os
 import logging
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, status
 from pydantic import BaseModel
 
 from config import get_settings
+from middleware.auth_middleware import get_session_id
 from services.extractor import extract_text, save_upload
 from services.chunker import chunk_text
 from services.embeddings import generate_embeddings
@@ -29,12 +30,13 @@ async def upload_document(
     request: Request,
     file: UploadFile = File(...),
     chat_id: str | None = Form(None),
+    session_id: str = Depends(get_session_id),
 ):
     settings = get_settings()
     max_bytes = settings.max_file_size_mb * 1024 * 1024
 
     if chat_id:
-        chat = get_chat_by_id(chat_id)
+        chat = get_chat_by_id(chat_id, session_id)
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
 
@@ -89,7 +91,7 @@ async def upload_document(
     ]
 
     try:
-        add_documents(chunks, embeddings, metadata_list, chat_id=chat_id)
+        add_documents(chunks, embeddings, metadata_list, chat_id=chat_id, session_id=session_id)
     except Exception as e:
         logger.error(f"Error storing documents: {e}", exc_info=True)
         raise HTTPException(
@@ -107,9 +109,11 @@ async def upload_document(
 
 
 @router.get("/documents/count")
-async def document_count(chat_id: str | None = None):
+async def document_count(
+    chat_id: str | None = None, session_id: str = Depends(get_session_id)
+):
     try:
-        count = get_document_count(chat_id=chat_id)
+        count = get_document_count(chat_id=chat_id, session_id=session_id)
         return {"count": count}
     except Exception as e:
         logger.error(f"Error getting document count: {e}", exc_info=True)

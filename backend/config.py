@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 20
     rate_limit_window_seconds: int = 60
 
+    # Access passcode — shared secret that gates the app.
+    # If unset, the app is publicly accessible (dev convenience).
+    app_passcode: str = os.environ.get("APP_PASSCODE", "demo-passcode")
+    access_token_ttl_seconds: int = 7 * 24 * 3600
+
 
 @lru_cache()
 def get_settings() -> Settings:

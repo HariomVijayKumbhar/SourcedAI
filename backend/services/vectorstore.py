@@ -33,6 +33,7 @@ def add_documents(
     embeddings: List[List[float]],
     metadata_list: List[Dict[str, Any]],
     chat_id: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> List[str]:
     if not chunks:
         return []
@@ -41,6 +42,8 @@ def add_documents(
     for meta in metadata_list:
         if chat_id:
             meta["chat_id"] = chat_id
+        if session_id:
+            meta["session_id"] = session_id
     collection.add(
         embeddings=embeddings,
         documents=chunks,
@@ -53,32 +56,39 @@ def add_documents(
     return ids
 
 
-def search(query: str, top_k: int = 5, chat_id: Optional[str] = None) -> Dict[str, Any]:
-    collection = _get_collection()
-
+def _build_where(
+    chat_id: Optional[str], session_id: Optional[str]
+) -> tuple[Optional[Dict[str, Any]], bool]:
+    if chat_id and session_id:
+        return {"$and": [{"chat_id": chat_id}, {"session_id": session_id}]}, False
     if chat_id:
-        where_filter = {"chat_id": chat_id}
-        scoped_count = len(collection.get(where=where_filter).get("ids", []))
-        if scoped_count == 0:
-            return {"documents": [], "metadatas": [], "distances": []}
-        n_results = min(top_k, scoped_count)
-        query_embeddings = generate_embeddings([query])
-        results = collection.query(
-            query_embeddings=query_embeddings,
-            n_results=n_results,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
-        )
-        return {
-            "documents": results.get("documents", [[]])[0],
-            "metadatas": results.get("metadatas", [[]])[0],
-            "distances": results.get("distances", [[]])[0],
-        }
+        return {"chat_id": chat_id}, False
+    if session_id:
+        return {"session_id": session_id}, False
+    return None, True
 
+
+def search(
+    query: str,
+    top_k: int = 5,
+    chat_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    where_filter, blocked = _build_where(chat_id, session_id)
+    if blocked:
+        return {"documents": [], "metadatas": [], "distances": []}
+
+    collection = _get_collection()
+    scoped_count = len(collection.get(where=where_filter).get("ids", []))
+    if scoped_count == 0:
+        return {"documents": [], "metadatas": [], "distances": []}
+
+    n_results = min(top_k, scoped_count)
     query_embeddings = generate_embeddings([query])
     results = collection.query(
         query_embeddings=query_embeddings,
-        n_results=top_k,
+        n_results=n_results,
+        where=where_filter,
         include=["documents", "metadatas", "distances"],
     )
     return {
@@ -88,14 +98,18 @@ def search(query: str, top_k: int = 5, chat_id: Optional[str] = None) -> Dict[st
     }
 
 
-def delete_chat_documents(chat_id: str) -> int:
+def delete_chat_documents(chat_id: str, session_id: Optional[str] = None) -> int:
     if not chat_id:
         return 0
     collection = _get_collection()
-    result = collection.get(where={"chat_id": chat_id})
+    if session_id:
+        where_filter = {"$and": [{"chat_id": chat_id}, {"session_id": session_id}]}
+    else:
+        where_filter = {"chat_id": chat_id}
+    result = collection.get(where=where_filter)
     ids = result.get("ids", [])
     if ids:
-        collection.delete(where={"chat_id": chat_id})
+        collection.delete(ids=ids)
     logger.info(f"Deleted {len(ids)} documents for chat {chat_id}")
     return len(ids)
 
@@ -108,9 +122,12 @@ def clear_collection() -> int:
     return count
 
 
-def get_document_count(chat_id: Optional[str] = None) -> int:
+def get_document_count(
+    chat_id: Optional[str] = None, session_id: Optional[str] = None
+) -> int:
     collection = _get_collection()
-    if chat_id:
-        result = collection.get(where={"chat_id": chat_id})
-        return len(result.get("ids", []))
-    return collection.count()
+    where_filter, blocked = _build_where(chat_id, session_id)
+    if blocked:
+        return 0
+    result = collection.get(where=where_filter)
+    return len(result.get("ids", []))
