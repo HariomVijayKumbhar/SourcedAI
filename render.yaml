@@ -18,7 +18,7 @@ services:
       - key: TEMPERATURE
         value: "0.2"
       - key: ALLOWED_ORIGIN
-        value: https://sourceai.vercel.app
+        value: https://sourced-ai-mu.vercel.app
       - key: MAX_FILE_SIZE_MB
         value: "10"
       - key: APP_PASSCODE
