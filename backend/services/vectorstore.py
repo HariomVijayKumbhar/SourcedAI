@@ -60,7 +60,7 @@ def _build_where(
     chat_id: Optional[str], user_id: Optional[str]
 ) -> tuple[Optional[Dict[str, Any]], bool]:
     if chat_id and user_id:
-        return {\"$and\": [{\"chat_id\": chat_id}, {\"user_id\": user_id}]}, False
+        return {"$and": [{"chat_id": chat_id}, {"user_id": user_id}]}, False
     if chat_id:
         return {"chat_id": chat_id}, False
     if user_id:
@@ -103,7 +103,7 @@ def delete_chat_documents(chat_id: str, user_id: Optional[str] = None) -> int:
         return 0
     collection = _get_collection()
     if user_id:
-        where_filter = {\"$and\": [{\"chat_id\": chat_id}, {\"user_id\": user_id}]}
+        where_filter = {"$and": [{"chat_id": chat_id}, {"user_id": user_id}]}
     else:
         where_filter = {"chat_id": chat_id}
     result = collection.get(where=where_filter)
