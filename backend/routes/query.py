@@ -1,10 +1,10 @@
-import logging
+﻿import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
-from middleware.auth_middleware import get_session_id
+from middleware.auth_middleware import get_current_user
 from services.vectorstore import search, get_document_count
 from services.llm import generate_answer, is_llm_configured
 from services.database import add_message, get_chat_by_id
@@ -51,10 +51,10 @@ class QueryResponse(BaseModel):
 async def query_document(
     request: Request,
     req: QueryRequest,
-    session_id: str = Depends(get_session_id),
+    user=Depends(get_current_user),
 ):
     if req.chat_id:
-        chat = get_chat_by_id(req.chat_id, session_id)
+        chat = get_chat_by_id(req.chat_id, user["user_id"])
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
 
@@ -64,7 +64,7 @@ async def query_document(
             detail="LLM provider API key is not configured. Please set the appropriate environment variable.",
         )
 
-    doc_count = get_document_count(chat_id=req.chat_id, session_id=session_id)
+    doc_count = get_document_count(chat_id=req.chat_id, user_id=user["user_id"])
     if doc_count == 0:
         return QueryResponse(
             answer="I don't have enough information to answer that from the uploaded documents. No documents have been uploaded to this chat yet.",
@@ -72,7 +72,7 @@ async def query_document(
         )
 
     try:
-        results = search(req.question, top_k=5, chat_id=req.chat_id, session_id=session_id)
+        results = search(req.question, top_k=5, chat_id=req.chat_id, user_id=user["user_id"])
     except Exception as e:
         logger.error(f"Error during similarity search: {e}", exc_info=True)
         raise HTTPException(
@@ -129,8 +129,14 @@ async def query_document(
 
     if req.chat_id:
         try:
-            add_message(req.chat_id, "user", req.question)
-            add_message(req.chat_id, "assistant", answer, [source.model_dump() for source in sources])
+            add_message(req.chat_id, "user", req.question, user_id=user["user_id"])
+            add_message(
+                req.chat_id,
+                "assistant",
+                answer,
+                [source.model_dump() for source in sources],
+                user_id=user["user_id"],
+            )
         except Exception:
             logger.exception("Failed to persist chat messages")
     return QueryResponse(answer=answer, sources=sources)

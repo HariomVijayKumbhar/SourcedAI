@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -39,6 +39,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     os.makedirs(settings.chroma_persist_dir, exist_ok=True)
     init_db()
+    if settings.jwt_secret.startswith("dev-only"):
+        logger.warning(
+            "JWT_SECRET is using the default insecure value. "
+            "Set a strong random JWT_SECRET in your environment for production."
+        )
     logger.info("Starting SourceAI backend")
     yield
     logger.info("Shutting down SourceAI backend")

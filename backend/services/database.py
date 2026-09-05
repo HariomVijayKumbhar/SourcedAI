@@ -1,4 +1,4 @@
-import json
+﻿import json
 import logging
 import os
 import sqlite3
@@ -16,17 +16,48 @@ def _connection() -> sqlite3.Connection:
     return connection
 
 
+def _column_exists(db: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = db.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(r["name"] == column for r in rows)
+
+
 def init_db() -> None:
     with _connection() as db:
+        # Users table
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS users ("
+            "id TEXT PRIMARY KEY, "
+            "username TEXT NOT NULL UNIQUE, "
+            "password_hash TEXT NOT NULL, "
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
+
+        # Chats: create with user_id column
         db.execute(
             "CREATE TABLE IF NOT EXISTS chats ("
             "id TEXT PRIMARY KEY, "
-            "session_id TEXT NOT NULL, "
+            "user_id TEXT NOT NULL, "
             "title TEXT NOT NULL, "
             "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
-            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+            "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
             ")"
         )
+
+        # Migrate: add user_id column if it doesn't exist (legacy session_id schema)
+        if not _column_exists(db, "chats", "user_id"):
+            try:
+                db.execute("ALTER TABLE chats ADD COLUMN user_id TEXT")
+                logger.info("Migrated chats table: added user_id column")
+            except sqlite3.OperationalError:
+                pass
+
+        # If there's a legacy 'session_id' column, drop any rows that lack a user_id
+        if _column_exists(db, "chats", "session_id"):
+            db.execute("DELETE FROM chats WHERE user_id IS NULL OR user_id = ''")
+
+        # Messages table
         db.execute(
             "CREATE TABLE IF NOT EXISTS messages ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -39,35 +70,60 @@ def init_db() -> None:
         )
         db.execute("CREATE INDEX IF NOT EXISTS messages_chat_idx ON messages(chat_id, id)")
         db.execute(
-            "CREATE INDEX IF NOT EXISTS chats_session_idx ON chats(session_id, updated_at DESC)"
+            "CREATE INDEX IF NOT EXISTS chats_user_idx ON chats(user_id, updated_at DESC)"
         )
         db.execute("PRAGMA foreign_keys = ON")
         db.commit()
 
 
-def list_chats(session_id: str) -> List[Dict[str, Any]]:
+# ---------- Users ----------
+
+def create_user(username: str, password_hash: str) -> Dict[str, Any]:
+    user_id = str(uuid.uuid4())
+    with _connection() as db:
+        db.execute(
+            "INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)",
+            (user_id, username, password_hash),
+        )
+        db.commit()
+    return {"id": user_id, "username": username}
+
+
+def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    with _connection() as db:
+        row = db.execute(
+            "SELECT id, username, password_hash FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        if row:
+            return {"id": row["id"], "username": row["username"], "password_hash": row["password_hash"]}
+    return None
+
+
+# ---------- Chats ----------
+
+def list_chats(user_id: str) -> List[Dict[str, Any]]:
     with _connection() as db:
         rows = db.execute(
-            "SELECT * FROM chats WHERE session_id = ? ORDER BY updated_at DESC", (session_id,)
+            "SELECT id, title FROM chats WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
         ).fetchall()
         return [{"id": row["id"], "title": row["title"], "messages": []} for row in rows]
 
 
-def create_chat(session_id: str, title: str = "New conversation") -> Dict[str, Any]:
+def create_chat(user_id: str, title: str = "New conversation") -> Dict[str, Any]:
     chat_id = str(uuid.uuid4())
     with _connection() as db:
         db.execute(
-            "INSERT INTO chats (id, session_id, title) VALUES (?, ?, ?)",
-            (chat_id, session_id, title),
+            "INSERT INTO chats (id, user_id, title) VALUES (?, ?, ?)",
+            (chat_id, user_id, title),
         )
         db.commit()
     return {"id": chat_id, "title": title, "messages": []}
 
 
-def get_messages(chat_id: str, session_id: str) -> Optional[List[Dict[str, Any]]]:
+def get_messages(chat_id: str, user_id: str) -> Optional[List[Dict[str, Any]]]:
     with _connection() as db:
         chat = db.execute(
-            "SELECT id FROM chats WHERE id = ? AND session_id = ?", (chat_id, session_id)
+            "SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)
         ).fetchone()
         if not chat:
             return None
@@ -80,21 +136,26 @@ def get_messages(chat_id: str, session_id: str) -> Optional[List[Dict[str, Any]]
         ]
 
 
-def delete_chat(chat_id: str, session_id: str) -> bool:
+def delete_chat(chat_id: str, user_id: str) -> bool:
     with _connection() as db:
         cursor = db.execute(
-            "DELETE FROM chats WHERE id = ? AND session_id = ?", (chat_id, session_id)
+            "DELETE FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)
         )
         db.commit()
         return cursor.rowcount > 0
 
 
-def add_message(chat_id: str, role: str, content: str, sources: list | None = None) -> None:
+def add_message(chat_id: str, role: str, content: str, sources: list | None = None, user_id: str | None = None) -> None:
     with _connection() as db:
-        db.execute(
-            "INSERT OR IGNORE INTO chats (id, session_id, title) VALUES (?, ?, ?)",
-            (chat_id, "legacy", content[:48] if role == "user" else "New conversation"),
-        )
+        # Ensure chat exists (auto-create if missing)
+        existing = db.execute("SELECT user_id FROM chats WHERE id = ?", (chat_id,)).fetchone()
+        if not existing:
+            title = content[:48] if role == "user" else "New conversation"
+            owner = user_id or "legacy"
+            db.execute(
+                "INSERT INTO chats (id, user_id, title) VALUES (?, ?, ?)",
+                (chat_id, owner, title),
+            )
         db.execute(
             "INSERT INTO messages (chat_id, role, content, sources) VALUES (:chat_id, :role, :content, :sources)",
             {
@@ -113,10 +174,10 @@ def add_message(chat_id: str, role: str, content: str, sources: list | None = No
         db.commit()
 
 
-def get_chat_by_id(chat_id: str, session_id: str) -> Optional[Dict[str, Any]]:
+def get_chat_by_id(chat_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     with _connection() as db:
         row = db.execute(
-            "SELECT * FROM chats WHERE id = ? AND session_id = ?", (chat_id, session_id)
+            "SELECT id, title FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)
         ).fetchone()
         if row:
             return {"id": row["id"], "title": row["title"]}

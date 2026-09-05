@@ -21,9 +21,9 @@ services:
         value: https://sourced-ai-mu.vercel.app
       - key: MAX_FILE_SIZE_MB
         value: "10"
-      - key: APP_PASSCODE
+      - key: JWT_SECRET
         generateValue: true
-      # Secrets â€” set these in the Render dashboard Environment tab after first deploy:
+      # Secrets — set these in the Render dashboard Environment tab after first deploy:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENAI_API_KEY

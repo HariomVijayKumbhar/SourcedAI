@@ -1,38 +1,47 @@
-import hmac
-
-from fastapi import APIRouter, HTTPException, status
+﻿from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-
-from config import get_settings
-from services.passcode import create_token
+from services.auth import create_user, authenticate_user, create_token
 
 router = APIRouter()
 
 
-class PasscodeRequest(BaseModel):
-    passcode: str
-    session_id: str
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
 
 
-class PasscodeResponse(BaseModel):
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthResponse(BaseModel):
     token: str
-    expires_in: int
+    user: dict
 
 
-@router.post("/auth/passcode", response_model=PasscodeResponse)
-async def verify_passcode(payload: PasscodeRequest):
-    settings = get_settings()
-    if not hmac.compare_digest(payload.passcode or "", settings.app_passcode):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect passcode",
-        )
-    if not payload.session_id or len(payload.session_id) > 128:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid session id",
-        )
-    return PasscodeResponse(
-        token=create_token(payload.session_id, settings.access_token_ttl_seconds),
-        expires_in=settings.access_token_ttl_seconds,
-    )
+@router.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+async def register(request: RegisterRequest):
+    if not request.username or not request.password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+    if len(request.username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    try:
+        user = create_user(request.username, request.password)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+    token = create_token(user["id"], user["username"])
+    return AuthResponse(token=token, user={"id": user["id"], "username": user["username"]})
+
+
+@router.post("/auth/login", response_model=AuthResponse)
+async def login(request: LoginRequest):
+    user = authenticate_user(request.username, request.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    token = create_token(user["id"], user["username"])
+    return AuthResponse(token=token, user={"id": user["id"], "username": user["username"]})

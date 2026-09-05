@@ -1,7 +1,7 @@
-import logging
+﻿import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from middleware.auth_middleware import get_session_id
+from middleware.auth_middleware import get_current_user
 from services.database import (
     list_chats,
     create_chat,
@@ -20,27 +20,27 @@ class ChatCreate(BaseModel):
 
 
 @router.get("/chats")
-async def chats(session_id: str = Depends(get_session_id)):
+async def chats(user=Depends(get_current_user)):
     try:
-        return {"chats": list_chats(session_id)}
+        return {"chats": list_chats(user["user_id"])}
     except Exception:
         logger.exception("Failed to list chats")
         raise HTTPException(status_code=500, detail="Failed to load chats")
 
 
 @router.post("/chats", status_code=status.HTTP_201_CREATED)
-async def new_chat(payload: ChatCreate, session_id: str = Depends(get_session_id)):
+async def new_chat(payload: ChatCreate, user=Depends(get_current_user)):
     try:
-        return create_chat(session_id, payload.title.strip() or "New conversation")
+        return create_chat(user["user_id"], payload.title.strip() or "New conversation")
     except Exception:
         logger.exception("Failed to create chat")
         raise HTTPException(status_code=500, detail="Failed to create chat")
 
 
 @router.get("/chats/{chat_id}/messages")
-async def chat_messages(chat_id: str, session_id: str = Depends(get_session_id)):
+async def chat_messages(chat_id: str, user=Depends(get_current_user)):
     try:
-        messages = get_messages(chat_id, session_id)
+        messages = get_messages(chat_id, user["user_id"])
         if messages is None:
             raise HTTPException(status_code=404, detail="Chat not found")
         return {"messages": messages}
@@ -52,16 +52,15 @@ async def chat_messages(chat_id: str, session_id: str = Depends(get_session_id))
 
 
 @router.delete("/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_chat_endpoint(chat_id: str, session_id: str = Depends(get_session_id)):
+async def delete_chat_endpoint(chat_id: str, user=Depends(get_current_user)):
     try:
-        chat = get_chat_by_id(chat_id, session_id)
+        chat = get_chat_by_id(chat_id, user["user_id"])
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
-        delete_chat_documents(chat_id, session_id)
-        delete_chat(chat_id, session_id)
+        delete_chat_documents(chat_id, user["user_id"])
+        delete_chat(chat_id, user["user_id"])
     except HTTPException:
         raise
     except Exception:
         logger.exception("Failed to delete chat")
         raise HTTPException(status_code=500, detail="Failed to delete chat")
-

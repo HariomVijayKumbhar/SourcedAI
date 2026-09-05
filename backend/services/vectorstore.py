@@ -33,7 +33,7 @@ def add_documents(
     embeddings: List[List[float]],
     metadata_list: List[Dict[str, Any]],
     chat_id: Optional[str] = None,
-    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> List[str]:
     if not chunks:
         return []
@@ -42,8 +42,8 @@ def add_documents(
     for meta in metadata_list:
         if chat_id:
             meta["chat_id"] = chat_id
-        if session_id:
-            meta["session_id"] = session_id
+        if user_id:
+            meta["user_id"] = user_id
     collection.add(
         embeddings=embeddings,
         documents=chunks,
@@ -57,14 +57,14 @@ def add_documents(
 
 
 def _build_where(
-    chat_id: Optional[str], session_id: Optional[str]
+    chat_id: Optional[str], user_id: Optional[str]
 ) -> tuple[Optional[Dict[str, Any]], bool]:
-    if chat_id and session_id:
-        return {"$and": [{"chat_id": chat_id}, {"session_id": session_id}]}, False
+    if chat_id and user_id:
+        return {\"$and\": [{\"chat_id\": chat_id}, {\"user_id\": user_id}]}, False
     if chat_id:
         return {"chat_id": chat_id}, False
-    if session_id:
-        return {"session_id": session_id}, False
+    if user_id:
+        return {"user_id": user_id}, False
     return None, True
 
 
@@ -72,9 +72,9 @@ def search(
     query: str,
     top_k: int = 5,
     chat_id: Optional[str] = None,
-    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    where_filter, blocked = _build_where(chat_id, session_id)
+    where_filter, blocked = _build_where(chat_id, user_id)
     if blocked:
         return {"documents": [], "metadatas": [], "distances": []}
 
@@ -98,12 +98,12 @@ def search(
     }
 
 
-def delete_chat_documents(chat_id: str, session_id: Optional[str] = None) -> int:
+def delete_chat_documents(chat_id: str, user_id: Optional[str] = None) -> int:
     if not chat_id:
         return 0
     collection = _get_collection()
-    if session_id:
-        where_filter = {"$and": [{"chat_id": chat_id}, {"session_id": session_id}]}
+    if user_id:
+        where_filter = {\"$and\": [{\"chat_id\": chat_id}, {\"user_id\": user_id}]}
     else:
         where_filter = {"chat_id": chat_id}
     result = collection.get(where=where_filter)
@@ -123,10 +123,10 @@ def clear_collection() -> int:
 
 
 def get_document_count(
-    chat_id: Optional[str] = None, session_id: Optional[str] = None
+    chat_id: Optional[str] = None, user_id: Optional[str] = None
 ) -> int:
     collection = _get_collection()
-    where_filter, blocked = _build_where(chat_id, session_id)
+    where_filter, blocked = _build_where(chat_id, user_id)
     if blocked:
         return 0
     result = collection.get(where=where_filter)

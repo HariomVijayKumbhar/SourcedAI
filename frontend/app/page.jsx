@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import UploadBox from "@/components/UploadBox";
 import ChatWindow from "@/components/ChatWindow";
 import Sidebar from "@/components/Sidebar";
-import PasscodeGate from "@/components/PasscodeGate";
 import {
   queryDocument,
   getDocumentCount,
@@ -13,6 +13,8 @@ import {
   getChatMessages,
   deleteChat,
   getToken,
+  getUser,
+  clearToken,
 } from "@/lib/api";
 import {
   Layers,
@@ -20,10 +22,13 @@ import {
   Trash2,
   Menu,
   Plus,
+  LogOut,
 } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
   const [isAuthed, setIsAuthed] = useState(false);
+  const [username, setUsername] = useState("");
   const [messages, setMessages] = useState([]);
   const [savedChats, setSavedChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -38,11 +43,20 @@ export default function Home() {
   const uploadBoxRef = useRef(null);
 
   useEffect(() => {
-    if (getToken()) setIsAuthed(true);
-    const onUnauth = () => setIsAuthed(false);
+    if (!getToken()) {
+      router.replace("/login");
+      return;
+    }
+    const user = getUser();
+    if (user?.username) setUsername(user.username);
+    setIsAuthed(true);
+    const onUnauth = () => {
+      setIsAuthed(false);
+      router.replace("/login");
+    };
     window.addEventListener("sourceai:unauthorized", onUnauth);
     return () => window.removeEventListener("sourceai:unauthorized", onUnauth);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!isAuthed) return undefined;
@@ -225,8 +239,18 @@ export default function Home() {
     textareaRef.current?.focus();
   }, []);
 
+  const handleLogout = useCallback(() => {
+    clearToken();
+    setIsAuthed(false);
+    router.replace("/login");
+  }, [router]);
+
   if (!isAuthed) {
-    return <PasscodeGate onAuthenticated={() => setIsAuthed(true)} />;
+    return (
+      <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex items-center justify-center">
+        <p className="text-sm text-slate-500">Redirecting to sign in...</p>
+      </div>
+    );
   }
 
   return (
@@ -293,6 +317,19 @@ export default function Home() {
                 <span className="hidden sm:inline">Clear</span>
               </button>
             )}
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+              <span className="text-slate-400 hidden sm:inline">Signed in as</span>
+              <span className="text-slate-200 font-medium">{username || "user"}</span>
+              <button
+                onClick={handleLogout}
+                className="ml-1 pl-2 border-l border-slate-700 text-slate-400 hover:text-rose-300 flex items-center gap-1 transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Sign out</span>
+              </button>
+            </div>
           </div>
         </header>
 

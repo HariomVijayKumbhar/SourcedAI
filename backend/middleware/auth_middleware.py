@@ -1,30 +1,28 @@
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
-from services.passcode import verify_token
+﻿from fastapi import Request, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from services.auth import verify_token
 
 security = HTTPBearer(auto_error=False)
 
 
-def _unauthorized(detail: str) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=detail,
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-
-async def get_session_id(
-    request: Request,
-    creds: HTTPAuthorizationCredentials | None = Depends(security),
-) -> str:
-    """Extracts and validates the bearer token, returning the session_id inside it.
-
-    The token is an HMAC-signed payload issued by /api/auth/passcode.
-    """
-    if creds is None or not creds.credentials:
-        raise _unauthorized("Missing access token")
-    payload = verify_token(creds.credentials)
+async def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+        )
+    token = parts[1]
+    payload = verify_token(token)
     if not payload:
-        raise _unauthorized("Invalid or expired access token")
-    return str(payload["sid"])
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+    return {"user_id": payload["sub"], "username": payload.get("username", "")}

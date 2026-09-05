@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 import os
 from functools import lru_cache
@@ -38,10 +38,9 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 20
     rate_limit_window_seconds: int = 60
 
-    # Access passcode — shared secret that gates the app.
-    # If unset, the app is publicly accessible (dev convenience).
-    app_passcode: str = os.environ.get("APP_PASSCODE", "demo-passcode")
-    access_token_ttl_seconds: int = 7 * 24 * 3600
+    # JWT auth for user accounts
+    jwt_secret: str = os.environ.get("JWT_SECRET", "dev-only-insecure-jwt-secret-change-me")
+    jwt_expire_seconds: int = 7 * 24 * 3600
 
 
 @lru_cache()
