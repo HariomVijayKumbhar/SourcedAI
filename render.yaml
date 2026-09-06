@@ -19,7 +19,7 @@ services:
       - key: TEMPERATURE
         value: "0.2"
       - key: ALLOWED_ORIGIN
-        value: https://sourced-ai-one.vercel.app,https://sourced-ai-nu.vercel.app,https://sourced-ai-mu.vercel.app
+        value: https://sourceai-frontend.onrender.com,https://sourced-ai-one.vercel.app,https://sourced-ai-nu.vercel.app,https://sourced-ai-mu.vercel.app
       - key: MAX_FILE_SIZE_MB
         value: "10"
       - key: JWT_SECRET
@@ -31,4 +31,18 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+    autoDeploy: true
+
+  - type: web
+    name: sourceai-frontend
+    runtime: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NEXT_PUBLIC_API_URL
+        value: https://sourcedai-hkxi.onrender.com
     autoDeploy: true

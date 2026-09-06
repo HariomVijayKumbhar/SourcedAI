@@ -71,6 +71,7 @@ dev_origins = [
     "https://sourced-ai-nu.vercel.app",
     "https://sourced-ai-mu.vercel.app",
     "https://sourced-ai-one.vercel.app",
+    "https://sourceai-frontend.onrender.com",
 ]
 allowed_origins = list(set(configured_origins + dev_origins))
 
