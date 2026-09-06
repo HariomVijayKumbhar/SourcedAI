@@ -70,6 +70,7 @@ dev_origins = [
     "http://127.0.0.1:3002",
     "https://sourced-ai-nu.vercel.app",
     "https://sourced-ai-mu.vercel.app",
+    "https://sourced-ai-one.vercel.app",
 ]
 allowed_origins = list(set(configured_origins + dev_origins))
 

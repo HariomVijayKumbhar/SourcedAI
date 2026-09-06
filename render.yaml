@@ -19,7 +19,7 @@ services:
       - key: TEMPERATURE
         value: "0.2"
       - key: ALLOWED_ORIGIN
-        value: https://sourced-ai-nu.vercel.app,https://sourced-ai-mu.vercel.app
+        value: https://sourced-ai-one.vercel.app,https://sourced-ai-nu.vercel.app,https://sourced-ai-mu.vercel.app
       - key: MAX_FILE_SIZE_MB
         value: "10"
       - key: JWT_SECRET
