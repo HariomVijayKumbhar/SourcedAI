@@ -163,9 +163,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [fetchDocCount, isAuthed]);
 
-  const handleUploadSuccess = useCallback(() => {
+  const handleUploadSuccess = useCallback((result) => {
+    if (result?.chat_id && result.chat_id !== activeChatId) {
+      setActiveChatId(result.chat_id);
+      setMessages([]);
+      getChats().then(setSavedChats).catch(() => {});
+    }
     fetchDocCount();
-  }, [fetchDocCount]);
+  }, [activeChatId, fetchDocCount]);
 
   const handleClearChat = useCallback(() => {
     setMessages([]);

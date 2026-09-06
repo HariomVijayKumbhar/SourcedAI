@@ -66,12 +66,26 @@ export async function uploadDocument(file, chatId = null) {
   formData.append("file", file);
   if (chatId) formData.append("chat_id", chatId);
 
-  const response = await handleUnauthorized(await fetch(`${API_URL}/api/upload`, {
+  let response = await handleUnauthorized(await fetch(`${API_URL}/api/upload`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
   }));
-  const data = await response.json();
+
+  let data = await response.json();
+  if (response.status === 404 && data.detail === "Chat not found" && chatId) {
+    const replacementChat = await createChat();
+    const retryFormData = new FormData();
+    retryFormData.append("file", file);
+    retryFormData.append("chat_id", replacementChat.id);
+    response = await handleUnauthorized(await fetch(`${API_URL}/api/upload`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: retryFormData,
+    }));
+    data = await response.json();
+    if (response.ok) data.chat_id = replacementChat.id;
+  }
   if (!response.ok) throw new Error(data.detail || data.message || "Upload failed");
   return data;
 }
