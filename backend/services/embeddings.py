@@ -4,10 +4,10 @@ from typing import List
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 logger = logging.getLogger(__name__)
-_embedding_function: DefaultEmbeddingFunction | None = None
+_embedding_function = None
 
 
-def get_embedding_function() -> DefaultEmbeddingFunction:
+def get_embedding_function():
     global _embedding_function
     if _embedding_function is None:
         logger.info("Loading Chroma ONNX embedding model: all-MiniLM-L6-v2")
