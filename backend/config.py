@@ -1,4 +1,5 @@
-﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 import os
 from functools import lru_cache
@@ -33,6 +34,17 @@ class Settings(BaseSettings):
     # ChromaDB
     chroma_persist_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
     database_path: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sourceai.db")
+
+    @field_validator("chroma_persist_dir", "database_path", mode="before")
+    @classmethod
+    def use_default_path_when_empty(cls, value: str | None, info):
+        if value and value.strip():
+            return value
+        defaults = {
+            "chroma_persist_dir": os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db"),
+            "database_path": os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sourceai.db"),
+        }
+        return defaults[info.field_name]
 
     # Rate limiting (requests per minute)
     rate_limit_requests: int = 20
