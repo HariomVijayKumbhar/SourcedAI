@@ -20,4 +20,4 @@ def generate_embeddings(texts: List[str]) -> List[List[float]]:
     if not texts:
         return []
     embeddings = get_embedding_function()(texts)
-    return [list(embedding) for embedding in embeddings]
+    return [[float(value) for value in embedding] for embedding in embeddings]
